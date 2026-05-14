@@ -29,7 +29,7 @@ async def create_device(device: DeviceCreate, user: User = Depends(current_activ
     device = Device(**device.model_dump(), owner_id=user.id)
     session.add(device)
     await session.commit()
-    await session.refresh()
+    await session.refresh(device)
     return device
 
 @router.patch("/{device_id}", response_model=DeviceRead)
