@@ -9,4 +9,5 @@ class Device(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("user.id"))
     owner: Mapped[User] = relationship(back_populates="devices")
-    
+    name: Mapped[str]
+    serial: Mapped[str] = mapped_column(unique=True, index=True)
