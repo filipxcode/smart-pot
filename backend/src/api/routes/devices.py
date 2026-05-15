@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from api.auth import current_active_user
@@ -19,16 +20,17 @@ async def list_my_devices(user: User = Depends(current_active_user), session: As
 
 @router.get("/{device_id}")
 async def get_device(device_id: int, user: User = Depends(current_active_user), session: AsyncSession = Depends(get_async_session)):
-    device = await select_device(device_id, user.id, session)
-    if device is None:
-        raise HTTPException(404, "Device not found")
-    return device
+    return await select_device(device_id, user.id, session)
 
 @router.post("", response_model=DeviceRead)
 async def create_device(device: DeviceCreate, user: User = Depends(current_active_user), session: AsyncSession = Depends(get_async_session)):
     device = Device(**device.model_dump(), owner_id=user.id)
     session.add(device)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Device with this serial already exists")
     await session.refresh(device)
     return device
 
