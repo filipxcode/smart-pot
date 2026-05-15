@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: smart-pot-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smart_pot
+      POSTGRES_USER: smart_pot_user
+      POSTGRES_PASSWORD: smart_pot_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

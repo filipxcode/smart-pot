@@ -8,7 +8,7 @@ from datetime import datetime
 class Metric(Base):
     __tablename__ = "metric"
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id"), index=True)
+    device_id: Mapped[int] = mapped_column(ForeignKey("device.id"), index=True)
     air_temp: Mapped[float | None] = mapped_column(Float, nullable=True) # temp powietrza
     air_hum: Mapped[float | None] = mapped_column(Float, nullable=True) # wilgotnosc powietrza
     root_temp: Mapped[float | None] = mapped_column(Float, nullable=True) # temp korzeni
