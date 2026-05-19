@@ -1,9 +1,43 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+from openai import AsyncOpenAI
+from sqlalchemy import text
 
+import api.models
 from api.auth import auth_backend, fastapi_users
-from api.schemas.user import UserCreate, UserRead, UserUpdate
+from api.base import Base
+from api.db import engine
 
-app = FastAPI()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+from api.routes.document import router as document_router
+from api.routes.query import router as query_router
+from api.schemas.user import UserCreate, UserRead, UserUpdate
+from config.settings import get_settings
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Startup: initializing database schema")
+    async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Startup: database ready, initializing OpenAI client")
+    app.state.openai_client = AsyncOpenAI(api_key=get_settings().OPENAI_API_KEY)
+    logger.info("Startup complete")
+    try:
+        yield
+    finally:
+        logger.info("Shutdown: closing OpenAI client")
+        await app.state.openai_client.close()
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.include_router(
     fastapi_users.get_auth_router(auth_backend),
@@ -20,3 +54,5 @@ app.include_router(
     prefix="/users",
     tags=["users"],
 )
+app.include_router(document_router)
+app.include_router(query_router)
