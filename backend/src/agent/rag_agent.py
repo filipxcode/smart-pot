@@ -1,36 +1,34 @@
 import logging
-from uuid import UUID
 
-from openai import AsyncOpenAI
-from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic_ai import Agent
+from pydantic_ai.messages import ModelMessage
 
+from agent.deps import ChatDeps
+from agent.prompts.prompts import PromptsOrganizer
 from agent.retrieval.rag_search import ChunkHit, hybrid_search
+from config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = (
-    "You are a helpful assistant answering questions based on the user's documents. "
-    "Use ONLY the provided context to answer. If the context does not contain the answer, "
-    "say you don't know. Cite document titles when relevant."
+_rag_agent = Agent(
+    get_settings().LLM_MODEL,
+    output_type=str,
+    system_prompt=PromptsOrganizer.RAG_SYSTEM,
 )
 
 
-async def answer_query(
+async def rag_answer(
     query: str,
-    session: AsyncSession,
-    openai: AsyncOpenAI,
-    embedding_model: str,
-    chat_model: str,
-    top_k: int,
-    owner_id: UUID,
+    deps: ChatDeps,
+    history: list[ModelMessage] | None = None,
 ) -> tuple[str, list[ChunkHit]]:
     hits = await hybrid_search(
-        session=session,
-        openai_client=openai,
-        embedding_model=embedding_model,
+        session=deps.session,
+        openai_client=deps.openai,
+        embedding_model=deps.embedding_model,
         query=query,
-        owner_id=owner_id,
-        top_k=top_k,
+        owner_id=deps.user_id,
+        top_k=deps.top_k,
     )
     if not hits:
         return "I don't know — no relevant context was found in your documents.", []
@@ -38,21 +36,10 @@ async def answer_query(
     context = "\n\n---\n\n".join(
         f"[{i + 1}] {h.document_title}\n{h.chunk_text}" for i, h in enumerate(hits)
     )
-    user_message = f"Context:\n{context}\n\nQuestion: {query}"
+    user_message = PromptsOrganizer.rag_user(context=context, query=query)
 
-    logger.info("answer_query: query=%r hits=%d model=%s", query, len(hits), chat_model)
-    response = await openai.chat.completions.create(
-        model=chat_model,
-        messages=[
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-    )
-    answer = response.choices[0].message.content or ""
-    logger.info(
-        "answer_query done: answer_chars=%d tokens_prompt=%s tokens_completion=%s",
-        len(answer),
-        getattr(response.usage, "prompt_tokens", None),
-        getattr(response.usage, "completion_tokens", None),
-    )
+    logger.info("rag_answer: query=%r hits=%d", query, len(hits))
+    result = await _rag_agent.run(user_message, message_history=history or [])
+    answer = result.output
+    logger.info("rag_answer done: answer_chars=%d", len(answer))
     return answer, hits

@@ -10,7 +10,8 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from ..config.settings import get_settings
+from agent.prompts.prompts import PromptsOrganizer
+from config.settings import get_settings
 
 MAX_MESSAGES_BEFORE_COMPACT = 20
 KEEP_RECENT = 6
@@ -18,11 +19,7 @@ KEEP_RECENT = 6
 _summary_agent = Agent(
     get_settings().LLM_MODEL_MINI,
     output_type=str,
-    system_prompt=(
-        "Streszczasz historię konwersacji w 3-5 zdaniach po polsku. "
-        "Zachowaj kluczowe fakty, decyzje i ustalenia użytkownika z asystentem. "
-        "Pomijaj small talk i powtórzenia. Pisz w trzeciej osobie."
-    ),
+    system_prompt=PromptsOrganizer.HISTORY_SUMMARY_SYSTEM,
 )
 
 
