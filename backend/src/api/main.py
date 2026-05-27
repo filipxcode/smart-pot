@@ -1,34 +1,50 @@
 import logging
 from contextlib import asynccontextmanager
 
+import logfire
 from fastapi import FastAPI
 from openai import AsyncOpenAI
 from sqlalchemy import text
+
+from config.settings import get_settings
+
+_settings = get_settings()
+logfire.configure(
+    token=_settings.LOGFIRE_TOKEN.get_secret_value() if _settings.LOGFIRE_TOKEN else None,
+    service_name=_settings.LOGFIRE_SERVICE_NAME,
+    environment=_settings.LOGFIRE_ENVIRONMENT,
+    send_to_logfire="if-token-present",
+    console=False,
+)
+logfire.instrument_pydantic_ai()
+logfire.instrument_asyncpg()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logfire.LogfireLoggingHandler(), logging.StreamHandler()],
+)
+logger = logging.getLogger(__name__)
 
 import api.models
 from api.auth import auth_backend, fastapi_users
 from api.base import Base
 from api.db import engine
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-logger = logging.getLogger(__name__)
 from api.routes.document import router as document_router
 from api.routes.query import router as query_router
 from api.schemas.user import UserCreate, UserRead, UserUpdate
-from config.settings import get_settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Startup: initializing database schema")
+    logfire.instrument_sqlalchemy(engine=engine.sync_engine)
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Startup: database ready, initializing OpenAI client")
     app.state.openai_client = AsyncOpenAI(api_key=get_settings().OPENAI_API_KEY)
+    logfire.instrument_openai(app.state.openai_client)
     logger.info("Startup complete")
     try:
         yield
@@ -38,6 +54,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+logfire.instrument_fastapi(app, capture_headers=True)
 
 app.include_router(
     fastapi_users.get_auth_router(auth_backend),
