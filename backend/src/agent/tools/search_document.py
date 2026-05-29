@@ -1,9 +1,10 @@
-from pydantic_ai import RunContext, ModelRetry
-from agent.retrieval.rag_search import hybrid_search, ChunkHit
-from agent.tool_agent import _tool_agent
+from pydantic_ai import ModelRetry, RunContext
 
-@_tool_agent.tool
-async def search_document(query: str, ctx: RunContext) -> ChunkHit:
+from agent.deps import ChatDeps
+from agent.retrieval.rag_search import ChunkHit, hybrid_search
+
+
+async def search_document(ctx: RunContext[ChatDeps], query: str) -> list[ChunkHit]:
     hits = await hybrid_search(
         session=ctx.deps.session,
         openai_client=ctx.deps.openai,
@@ -13,5 +14,5 @@ async def search_document(query: str, ctx: RunContext) -> ChunkHit:
         top_k=ctx.deps.top_k,
     )
     if not hits:
-        return ModelRetry("Try to change a query, there is no sources!")
+        raise ModelRetry("Try to change a query, there is no sources!")
     return hits
