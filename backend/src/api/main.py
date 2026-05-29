@@ -17,7 +17,6 @@ logfire.configure(
     console=False,
 )
 logfire.instrument_pydantic_ai()
-logfire.instrument_asyncpg()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,13 +37,11 @@ from api.schemas.user import UserCreate, UserRead, UserUpdate
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Startup: initializing database schema")
-    logfire.instrument_sqlalchemy(engine=engine.sync_engine)
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Startup: database ready, initializing OpenAI client")
     app.state.openai_client = AsyncOpenAI(api_key=get_settings().OPENAI_API_KEY)
-    logfire.instrument_openai(app.state.openai_client)
     logger.info("Startup complete")
     try:
         yield
@@ -54,7 +51,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-logfire.instrument_fastapi(app, capture_headers=True)
 
 app.include_router(
     fastapi_users.get_auth_router(auth_backend),
