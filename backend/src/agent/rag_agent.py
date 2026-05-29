@@ -4,6 +4,7 @@ from pydantic_ai import Agent
 from pydantic_ai.messages import ModelMessage
 
 from agent.deps import ChatDeps
+from agent.model import build_model
 from agent.prompts.prompts import PromptsOrganizer
 from agent.retrieval.rag_search import ChunkHit, hybrid_search
 from config.settings import get_settings
@@ -11,7 +12,7 @@ from config.settings import get_settings
 logger = logging.getLogger(__name__)
 
 _rag_agent = Agent(
-    get_settings().LLM_MODEL,
+    build_model(get_settings().LLM_MODEL),
     output_type=str,
     system_prompt=PromptsOrganizer.RAG_SYSTEM,
 )

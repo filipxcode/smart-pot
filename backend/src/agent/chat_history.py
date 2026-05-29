@@ -10,6 +10,7 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
+from agent.model import build_model
 from agent.prompts.prompts import PromptsOrganizer
 from config.settings import get_settings
 
@@ -17,7 +18,7 @@ MAX_MESSAGES_BEFORE_COMPACT = 20
 KEEP_RECENT = 6
 
 _summary_agent = Agent(
-    get_settings().LLM_MODEL_MINI,
+    build_model(get_settings().LLM_MODEL_MINI),
     output_type=str,
     system_prompt=PromptsOrganizer.HISTORY_SUMMARY_SYSTEM,
 )
