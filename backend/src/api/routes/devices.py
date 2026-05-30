@@ -49,7 +49,7 @@ async def delete_device(device_id: int, user: User = Depends(current_active_user
     await session.delete(device)
     await session.commit()
     
-@router.post("/{device_id}/water", status_code=status.HTTP_201_NO_CONTENT)
+@router.post("/{device_id}/water")
 async def create_water_event(device_id: int, user: User = Depends(current_active_user), session: AsyncSession = Depends(get_async_session)):
     #TU podlanie reczne z frontendu i idzie do serwisu obslugujacego podlanie przez ten endpoint, ai i planowane podlania z kalendarza
     return None
