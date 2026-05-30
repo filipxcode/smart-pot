@@ -13,16 +13,19 @@ logfire.configure(
     token=_settings.LOGFIRE_TOKEN.get_secret_value() if _settings.LOGFIRE_TOKEN else None,
     service_name=_settings.LOGFIRE_SERVICE_NAME,
     environment=_settings.LOGFIRE_ENVIRONMENT,
-    send_to_logfire="if-token-present",
+    send_to_logfire="if-token-present" if _settings.LOGFIRE_ENABLED else False,
     console=False,
 )
-logfire.instrument_pydantic_ai()
-logfire.instrument_asyncpg()
+
+handlers: list[logging.Handler] = [logging.StreamHandler()]
+if _settings.LOGFIRE_ENABLED:
+    logfire.instrument_pydantic_ai()
+    handlers.append(logfire.LogfireLoggingHandler())
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logfire.LogfireLoggingHandler(), logging.StreamHandler()],
+    handlers=handlers,
 )
 logger = logging.getLogger(__name__)
 
@@ -32,19 +35,20 @@ from api.base import Base
 from api.db import engine
 from api.routes.document import router as document_router
 from api.routes.query import router as query_router
+from api.routes.device_event import router as device_metric_router
+from api.routes.devices import router as device_router
+from api.routes.metric import router as metric_router
 from api.schemas.user import UserCreate, UserRead, UserUpdate
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Startup: initializing database schema")
-    logfire.instrument_sqlalchemy(engine=engine.sync_engine)
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Startup: database ready, initializing OpenAI client")
     app.state.openai_client = AsyncOpenAI(api_key=get_settings().OPENAI_API_KEY)
-    logfire.instrument_openai(app.state.openai_client)
     logger.info("Startup complete")
     try:
         yield
@@ -54,7 +58,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-logfire.instrument_fastapi(app, capture_headers=True)
 
 app.include_router(
     fastapi_users.get_auth_router(auth_backend),
@@ -73,3 +76,6 @@ app.include_router(
 )
 app.include_router(document_router)
 app.include_router(query_router)
+app.include_router(device_metric_router)
+app.include_router(device_router)
+app.include_router(metric_router)

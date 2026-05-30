@@ -1,7 +1,3 @@
-from pydantic_ai import RunContext, ModelRetry
-from agent.tool_agent import _tool_agent
-
-@_tool_agent.tool
-async def water_plant(watering_time: int, ctx: RunContext)->str:
-    #here water func
-    return "Success"
+async def water_plant(watering_time: int = 10) -> str:
+    # stub: trigger the pump for watering_time seconds
+    return f"Success: podlano przez {watering_time}s"

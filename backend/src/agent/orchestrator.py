@@ -1,5 +1,6 @@
 import logging
 
+import logfire
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -24,23 +25,25 @@ async def run_turn(
     deps: ChatDeps,
     history: list[ModelMessage] | None = None,
 ) -> tuple[str, list[ChunkHit], list[ModelMessage]]:
-    compacted = await compact_history(history or [])
-    decision = await route_decision(query)
-    logger.info("run_turn: decision=%s", decision.decision)
+    with logfire.span("run_turn", query=query) as span:
+        compacted = await compact_history(history or [])
+        decision = await route_decision(query)
+        span.set_attribute("decision", decision.decision)
+        logger.info("run_turn: decision=%s", decision.decision)
 
-    answer: str
-    sources: list[ChunkHit] = []
+        answer: str
+        sources: list[ChunkHit] = []
 
-    match decision.decision:
-        case "rag":
-            answer, sources = await rag_answer(query=query, deps=deps, history=compacted)
-        case "tool":
-            answer = await tool_answer(query=query, deps=deps, history=compacted)
-        case "reject":
-            answer = PromptsOrganizer.REJECT_MESSAGE
+        match decision.decision:
+            case "rag":
+                answer, sources = await rag_answer(query=query, deps=deps, history=compacted)
+            case "tool":
+                answer = await tool_answer(query=query, deps=deps, history=compacted)
+            case "reject":
+                answer = PromptsOrganizer.REJECT_MESSAGE
 
-    new_history = compacted + [
-        ModelRequest(parts=[UserPromptPart(content=query)]),
-        ModelResponse(parts=[TextPart(content=answer)]),
-    ]
-    return answer, sources, new_history
+        new_history = compacted + [
+            ModelRequest(parts=[UserPromptPart(content=query)]),
+            ModelResponse(parts=[TextPart(content=answer)]),
+        ]
+        return answer, sources, new_history

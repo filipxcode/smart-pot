@@ -15,33 +15,52 @@ from config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-
-async def rag_upload(title: str, data: bytes, user_id: UUID, session: AsyncSession, openai: AsyncOpenAI) -> DocumentModel:
-    logger.info("rag_upload start: title=%r size=%d user=%s", title, len(data), user_id)
-
-    parsed_text = parse_pdf(data)
-    if not parsed_text:
-        logger.warning("rag_upload: empty PDF (user=%s title=%r)", user_id, title)
-        raise HTTPException(422, "Empty or unreadable PDF")
-    logger.info("rag_upload: parsed %d chars", len(parsed_text))
-
-    chunked_text = chunk_text(parsed_text)
-    if not chunked_text:
-        logger.warning("rag_upload: no chunks (user=%s title=%r)", user_id, title)
-        raise HTTPException(422, "No chunks produced")
-    logger.info("rag_upload: produced %d chunks", len(chunked_text))
-
-    texts = [d.page_content for d in chunked_text]
-    embeddings = await embed_batch(client=openai, model=get_settings().EMBEDDING_MODEL, texts=texts)
-    logger.info("rag_upload: embedded %d chunks", len(embeddings))
-
-    doc = DocumentModel(title=title, raw_text=parsed_text, owner_id=user_id)
-    doc.chunks = [Chunk(text=t, embedding=e) for t, e in zip(texts, embeddings)]
+async def create_pending_document(title: str, user_id: UUID, session: AsyncSession) -> DocumentModel:
+    """Create the document row up front with status='processing' so the client can poll it."""
+    doc = DocumentModel(title=title, raw_text="", owner_id=user_id, status="processing")
     session.add(doc)
     await session.commit()
     await session.refresh(doc)
-    logger.info("rag_upload done: document_id=%s chunks=%d", doc.id, len(doc.chunks))
+    logger.info("create_pending_document: document_id=%s user=%s", doc.id, user_id)
     return doc
+
+
+async def ingest_document(doc_id: int, data: bytes, session: AsyncSession, openai: AsyncOpenAI) -> None:
+    """Parse, chunk, embed and fill an existing document. Sets status='success' on completion."""
+    logger.info("ingest_document start: doc=%s size=%d", doc_id, len(data))
+    doc = await session.get(DocumentModel, doc_id)
+    if doc is None:
+        logger.warning("ingest_document: document gone (doc=%s)", doc_id)
+        return
+
+    parsed_text = parse_pdf(data)
+    if not parsed_text:
+        raise ValueError("Empty or unreadable PDF")
+    logger.info("ingest_document: parsed %d chars (doc=%s)", len(parsed_text), doc_id)
+
+    chunked_text = chunk_text(parsed_text)
+    if not chunked_text:
+        raise ValueError("No chunks produced")
+    logger.info("ingest_document: produced %d chunks (doc=%s)", len(chunked_text), doc_id)
+
+    texts = [d.page_content for d in chunked_text]
+    embeddings = await embed_batch(client=openai, model=get_settings().EMBEDDING_MODEL, texts=texts)
+    logger.info("ingest_document: embedded %d chunks (doc=%s)", len(embeddings), doc_id)
+
+    doc.raw_text = parsed_text
+    doc.status = "success"
+    session.add_all([Chunk(text=t, embedding=e, document_id=doc.id) for t, e in zip(texts, embeddings)])
+    await session.commit()
+    logger.info("ingest_document done: doc=%s chunks=%d", doc_id, len(texts))
+
+
+async def mark_document_failed(doc_id: int, session: AsyncSession) -> None:
+    doc = await session.get(DocumentModel, doc_id)
+    if doc is None:
+        return
+    doc.status = "failed"
+    await session.commit()
+    logger.info("mark_document_failed: doc=%s", doc_id)
 
 
 async def select_document(id: int, user_id: UUID, session: AsyncSession) -> DocumentModel:

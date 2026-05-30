@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agent.rag_agent import rag_answer
+from agent.orchestrator import run_turn
 from agent.deps import ChatDeps
 from api.auth import current_active_user
 from api.db import get_async_session
@@ -33,6 +33,6 @@ async def query(
         embedding_model=settings.EMBEDDING_MODEL,
         top_k=body.top_k or settings.QUERY_TOP_K,
     )
-    answer, sources = await rag_answer(query=body.query, deps=deps)
+    answer, sources, new_history = await run_turn(query=body.query, deps=deps)
     logger.info("query handled: user=%s top_k=%d", user.id, len(sources))
     return QueryResponse(answer=answer, sources=sources)
