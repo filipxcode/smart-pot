@@ -48,3 +48,5 @@ async def delete_device(device_id: int, user: User = Depends(current_active_user
     device = await select_device(device_id, user.id, session)
     await session.delete(device)
     await session.commit()
+    
+@router.post("/")
