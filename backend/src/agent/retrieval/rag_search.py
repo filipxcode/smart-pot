@@ -52,7 +52,8 @@ SELECT c.id           AS chunk_id,
        c.document_id  AS document_id,
        c.text         AS chunk_text,
        d.title        AS document_title,
-       f.score        AS similarity
+       f.score        AS similarity,
+       1 - (c.embedding <=> CAST(:qvec AS vector)) AS cosine_similarity
 FROM fused f
 JOIN chunks c ON c.id = f.id
 JOIN documents d ON d.id = c.document_id
@@ -65,7 +66,8 @@ class ChunkHit(BaseModel):
     document_id: int
     chunk_text: str
     document_title: str
-    similarity: float
+    similarity: float  # RRF fusion score (dense + sparse), not a vector distance
+    cosine_similarity: float  # 1 - cosine distance between query and chunk embedding
 
 
 async def hybrid_search(

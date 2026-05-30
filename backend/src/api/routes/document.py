@@ -1,19 +1,21 @@
 import logging
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status, BackgroundTasks
 from openai import AsyncOpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.auth import current_active_user
-from api.db import get_async_session
+from api.db import async_session_maker, get_async_session
 from api.dependencies import get_openai_client
 from api.models.document import DocumentModel
 from api.models.user import User
 from api.service.document import (
+    create_pending_document,
     delete_document,
+    ingest_document,
     list_document_chunks,
-    rag_upload,
+    mark_document_failed,
     select_document,
     update_document,
 )
@@ -27,18 +29,31 @@ PDF_MAGIC_BYTES = b"%PDF-"
 
 router = APIRouter(prefix="/file", tags=["file"])
 
+async def proceed_file(doc_id: int, data: bytes, openai: AsyncOpenAI) -> None:
+    # Runs AFTER the response is sent: own session, no request-scoped objects.
+    async with async_session_maker() as session:
+        try:
+            await ingest_document(doc_id=doc_id, data=data, session=session, openai=openai)
+        except Exception:
+            logger.exception("Ingest failed: doc=%s", doc_id)
+            await session.rollback()
+            await mark_document_failed(doc_id=doc_id, session=session)
 
-@router.post("", response_model=DocumentRead, status_code=status.HTTP_201_CREATED)
+
+@router.post("", response_model=DocumentRead, status_code=status.HTTP_202_ACCEPTED)
 async def upload_file(
+    background_tasks: BackgroundTasks,
     title: str = Form(..., min_length=1, max_length=100),
     file: UploadFile = File(...),
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_async_session),
     openai: AsyncOpenAI = Depends(get_openai_client),
-):
+) -> DocumentModel:
+    """Validate the file in-request, create a pending document, then ingest it in the background."""
     if file.content_type != "application/pdf":
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Unsupported file type")
 
+    # Read/validate the file IN the request — UploadFile is closed once we respond.
     chunks: list[bytes] = []
     total = 0
     while chunk := await file.read(READ_CHUNK_SIZE):
@@ -51,9 +66,9 @@ async def upload_file(
     if not data.startswith(PDF_MAGIC_BYTES):
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "File is not a valid PDF")
 
-    logger.info("Upload accepted: user=%s title=%r size=%d", user.id, title, total)
-    doc = await rag_upload(title=title, data=data, user_id=user.id, session=session, openai=openai)
-    logger.info("Upload finished: document_id=%s", doc.id)
+    doc = await create_pending_document(title=title, user_id=user.id, session=session)
+    logger.info("Upload accepted: doc=%s user=%s title=%r size=%d", doc.id, user.id, title, total)
+    background_tasks.add_task(proceed_file, doc.id, data, openai)
     return doc
 
 @router.get("", response_model=list[DocumentRead])

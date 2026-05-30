@@ -28,9 +28,6 @@ async def compact_history(
     messages: list[ModelMessage],
     max_messages: int = MAX_MESSAGES_BEFORE_COMPACT,
 ) -> list[ModelMessage]:
-    """Jeśli historia <= max_messages, zwróć bez zmian.
-    Inaczej streszcz środek, zachowując system prompt (jeśli jest)
-    i ostatnie KEEP_RECENT wiadomości w oryginale."""
     if len(messages) < max_messages:
         return messages
 

@@ -18,3 +18,4 @@ class DocumentModel(Base):
         passive_deletes=True,          
     )
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("user.id"))
+    status: Mapped[str] = mapped_column(default="processing")

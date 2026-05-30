@@ -13,15 +13,19 @@ logfire.configure(
     token=_settings.LOGFIRE_TOKEN.get_secret_value() if _settings.LOGFIRE_TOKEN else None,
     service_name=_settings.LOGFIRE_SERVICE_NAME,
     environment=_settings.LOGFIRE_ENVIRONMENT,
-    send_to_logfire="if-token-present",
+    send_to_logfire="if-token-present" if _settings.LOGFIRE_ENABLED else False,
     console=False,
 )
-logfire.instrument_pydantic_ai()
+
+handlers: list[logging.Handler] = [logging.StreamHandler()]
+if _settings.LOGFIRE_ENABLED:
+    logfire.instrument_pydantic_ai()
+    handlers.append(logfire.LogfireLoggingHandler())
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logfire.LogfireLoggingHandler(), logging.StreamHandler()],
+    handlers=handlers,
 )
 logger = logging.getLogger(__name__)
 
@@ -31,6 +35,9 @@ from api.base import Base
 from api.db import engine
 from api.routes.document import router as document_router
 from api.routes.query import router as query_router
+from api.routes.device_event import router as device_metric_router
+from api.routes.devices import router as device_router
+from api.routes.metric import router as metric_router
 from api.schemas.user import UserCreate, UserRead, UserUpdate
 
 
@@ -69,3 +76,6 @@ app.include_router(
 )
 app.include_router(document_router)
 app.include_router(query_router)
+app.include_router(device_metric_router)
+app.include_router(device_router)
+app.include_router(metric_router)
