@@ -27,7 +27,6 @@ export default function ChatScreen() {
         mutationFn: async (userQuery: string) => {
             const response = await apiClient.post('/query', {
                 query: userQuery,
-                top_k: 5
             });
             return response.data; // Zwraca: { answer: string, sources: [...] }
         },

@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/useAuthStore';
 
-// WAŻNE: localhost często nie działa. Zmień na IP swojego komputera w sieci lokalnej
-const API_URL = 'http://192.168.1.8:8000';
+// Telefon w sieci LAN -> IP kompu (localhost na telefonie = sam telefon).
+// Web na tym samym kompie -> http://localhost:8000.
+const API_URL = 'http://192.168.1.100:8000';
 
 export const apiClient = axios.create({
     baseURL: API_URL,
