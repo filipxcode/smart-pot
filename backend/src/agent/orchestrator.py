@@ -28,19 +28,22 @@ async def run_turn(
     with logfire.span("run_turn", query=query) as span:
         compacted = await compact_history(history or [])
         decision = await route_decision(query)
-        span.set_attribute("decision", decision.decision)
-        logger.info("run_turn: decision=%s", decision.decision)
+        decision_label = decision.decision if decision else "error"
+        span.set_attribute("decision", decision_label)
+        logger.info("run_turn: decision=%s", decision_label)
 
         answer: str
         sources: list[ChunkHit] = []
 
-        match decision.decision:
+        match decision_label:
             case "rag":
                 answer, sources = await rag_answer(query=query, deps=deps, history=compacted)
             case "tool":
                 answer = await tool_answer(query=query, deps=deps, history=compacted)
             case "reject":
                 answer = PromptsOrganizer.REJECT_MESSAGE
+            case _:  # router zwrócił None (błąd klasyfikacji)
+                answer = PromptsOrganizer.ERROR_MESSAGE
 
         new_history = compacted + [
             ModelRequest(parts=[UserPromptPart(content=query)]),

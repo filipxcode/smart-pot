@@ -11,8 +11,7 @@ async def search_document(ctx: RunContext[ChatDeps], query: str) -> list[ChunkHi
         embedding_model=ctx.deps.embedding_model,
         query=query,
         owner_id=ctx.deps.user_id,
-        top_k=ctx.deps.top_k,
     )
     if not hits:
-        raise ModelRetry("Try to change a query, there is no sources!")
+        raise ModelRetry("Brak wyników — zmień zapytanie, w dokumentach nie ma takich informacji.")
     return hits

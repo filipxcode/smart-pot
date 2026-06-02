@@ -11,4 +11,3 @@ class ChatDeps:
     openai: AsyncOpenAI
     user_id: UUID
     embedding_model: str
-    top_k: int
