@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from api.auth import current_active_user
 from api.db import get_async_session
 from api.models.device import Device
+from api.models.metric import Sensor
 from api.models.user import User
-from api.service.devices import select_device
+from api.service.devices import select_device, water_plant, read_sensor
 from api.schemas.device import DeviceCreate, DeviceRead, DeviceUpdate
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -50,6 +52,27 @@ async def delete_device(device_id: int, user: User = Depends(current_active_user
     await session.commit()
     
 @router.post("/{device_id}/water")
-async def create_water_event(device_id: int, user: User = Depends(current_active_user), session: AsyncSession = Depends(get_async_session)):
-    #TU podlanie reczne z frontendu i idzie do serwisu obslugujacego podlanie przez ten endpoint, ai i planowane podlania z kalendarza
-    return None
+async def create_water_event(
+    device_id: int,
+    watering_time: int = Query(10, ge=1, le=120),
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    try:
+        await water_plant(watering_time, device_id, user.id, session)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Urządzenie nie odpowiada") from exc
+    return {"status": "ok", "watering_time": watering_time}
+
+@router.get("/{device_id}/read-sensor")
+async def read_sensor_event(
+    device_id: int,
+    sensors: list[Sensor] | None = Query(None),
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    selected = sensors or list(Sensor)
+    try:
+        return await read_sensor(selected, device_id, user.id, session)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Urządzenie nie odpowiada") from exc

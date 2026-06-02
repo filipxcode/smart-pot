@@ -31,8 +31,7 @@ async def query(
         openai=openai,
         user_id=user.id,
         embedding_model=settings.EMBEDDING_MODEL,
-        top_k=body.top_k or settings.QUERY_TOP_K,
     )
     answer, sources, new_history = await run_turn(query=body.query, deps=deps)
-    logger.info("query handled: user=%s top_k=%d", user.id, len(sources))
+    logger.info("query handled: user=%s sources=%d", user.id, len(sources))
     return QueryResponse(answer=answer, sources=sources)
