@@ -27,6 +27,7 @@ pydantic-ai==1.97.0
 openai==2.36.0
 langchain-core==1.4.0
 langchain-text-splitters==1.1.2
+tavily-python==0.7.25
 
 # PDF parsing (provides `import fitz`)
 PyMuPDF==1.27.2.3

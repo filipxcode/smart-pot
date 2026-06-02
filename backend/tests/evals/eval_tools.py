@@ -39,7 +39,6 @@ async def run_tool_agent(query: str) -> list[ToolCall]:
         openai=None,
         user_id=uuid4(),
         embedding_model="text-embedding-3-small",
-        top_k=5,
     )
     result = await _tool_agent.run(query, deps=deps)
     return [

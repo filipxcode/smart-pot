@@ -1,9 +1,3 @@
-"""Ewaluacja routera: klasyfikacja zapytania na tool / rag / reject.
-
-Wyjście jest strukturalne (RouterDecision), więc oceniamy je deterministycznie
-przez EqualsExpected — bez LLM-judge i bez grzebania w all_messages().
-"""
-
 from __future__ import annotations
 
 from pydantic_evals import Case, Dataset
@@ -54,7 +48,19 @@ dataset = Dataset[str, str, None](
             inputs="jak często według moich notatek powinienem nawozić monsterę?",
             expected_output="rag",
         ),
-        # reject: poza zakresem 
+        # tool: ogólne pytanie botaniczne -> wyszukiwanie w sieci
+        Case(
+            name="general_botany_web",
+            inputs="jak często powinienem podlewać monsterę?",
+            expected_output="tool",
+        ),
+        # tool: przytaknięcie / kontynuacja rozmowy -> przekaż dalej, nie odrzucaj
+        Case(
+            name="affirmation",
+            inputs="tak, zrób to",
+            expected_output="tool",
+        ),
+        # reject: poza zakresem
         Case(
             name="out_of_scope",
             inputs="jaka jest stolica Francji?",
