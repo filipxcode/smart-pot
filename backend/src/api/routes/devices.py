@@ -71,8 +71,7 @@ async def read_sensor_event(
     user: User = Depends(current_active_user),
     session: AsyncSession = Depends(get_async_session),
 ):
-    selected = sensors or list(Sensor)
     try:
-        return await read_sensor(selected, device_id, user.id, session)
+        return await read_sensor(device_id, user.id, session, sensors)
     except httpx.HTTPError as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Urządzenie nie odpowiada") from exc

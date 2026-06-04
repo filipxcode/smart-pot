@@ -17,7 +17,6 @@ async def schedule_watering_plant(
     days: list[Weekday] | None = None,
     duration_sec: int = 10,
 ) -> str:
-    # stub: persist a recurring watering schedule
     when = "codziennie" if not days else ", ".join(d.value for d in days)
     return (
         f"Zaplanowano cykliczne podlewanie ({when}) "

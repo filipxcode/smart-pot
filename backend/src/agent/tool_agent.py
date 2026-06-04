@@ -7,6 +7,7 @@ from pydantic_ai.usage import UsageLimits
 from agent.deps import ChatDeps
 from agent.model import build_model
 from agent.prompts.prompts import PromptsOrganizer
+from agent.tools.read_historical_data import read_historical_data
 from agent.tools.read_sensor import read_sensor
 from agent.tools.schedule_watering import schedule_watering_plant
 from agent.tools.search_document import search_document
@@ -21,7 +22,14 @@ _tool_agent = Agent(
     deps_type=ChatDeps,
     output_type=str,
     system_prompt=PromptsOrganizer.TOOL_SYSTEM,
-    tools=[read_sensor, schedule_watering_plant, search_document, water_plant, web_search],
+    tools=[
+        read_sensor,
+        read_historical_data,
+        schedule_watering_plant,
+        search_document,
+        water_plant,
+        web_search,
+    ],
 )
 
 _TOOL_LIMITS = UsageLimits(request_limit=12, tool_calls_limit=10)

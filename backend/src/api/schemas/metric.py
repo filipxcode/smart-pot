@@ -23,3 +23,21 @@ class MetricRead(BaseModel):
     soil_hum: int | None
     light_lux: float | None
     created_at: datetime
+
+
+class MetricBucket(BaseModel):
+    bucket: datetime
+    count: int
+    air_temp: float | None = None
+    air_hum: float | None = None
+    root_temp: float | None = None
+    soil_hum: float | None = None
+    light_lux: float | None = None
+
+
+class HistorySummary(BaseModel):
+    unit: str
+    amount: int
+    granularity: str
+    start: datetime
+    buckets: list[MetricBucket]

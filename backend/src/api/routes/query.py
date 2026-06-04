@@ -11,6 +11,7 @@ from api.db import get_async_session
 from api.dependencies import get_openai_client
 from api.models.user import User
 from api.schemas.query import QueryRequest, QueryResponse
+from api.service.devices import get_primary_device
 from config.settings import get_settings
 
 logger = logging.getLogger(__name__)
@@ -26,10 +27,13 @@ async def query(
     openai: AsyncOpenAI = Depends(get_openai_client),
 ):
     settings = get_settings()
+    # MVP: pick the user's primary device server-side. TODO: let the client pass device_id (multi-device support).
+    device = await get_primary_device(user.id, session)
     deps = ChatDeps(
         session=session,
         openai=openai,
         user_id=user.id,
+        device_id=device.id,
         embedding_model=settings.EMBEDDING_MODEL,
     )
     answer, sources, new_history = await run_turn(query=body.query, deps=deps)

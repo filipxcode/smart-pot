@@ -11,12 +11,12 @@ from config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-# Router to pojedyncza klasyfikacja — kilka żądań w zupełności wystarcza.
+
 _ROUTER_LIMITS = UsageLimits(request_limit=3)
 
 
 class RouterDecision(BaseModel):
-    decision: Literal["tool", "reject", "rag"]
+    decision: Literal["tool", "reject"]
 
 
 _route_agent = Agent(

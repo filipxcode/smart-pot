@@ -12,7 +12,6 @@ from pydantic_ai.messages import (
 from agent.chat_history import compact_history
 from agent.deps import ChatDeps
 from agent.prompts.prompts import PromptsOrganizer
-from agent.rag_agent import rag_answer
 from agent.retrieval.rag_search import ChunkHit
 from agent.router import route_decision
 from agent.tool_agent import tool_answer
@@ -36,13 +35,11 @@ async def run_turn(
         sources: list[ChunkHit] = []
 
         match decision_label:
-            case "rag":
-                answer, sources = await rag_answer(query=query, deps=deps, history=compacted)
             case "tool":
                 answer = await tool_answer(query=query, deps=deps, history=compacted)
             case "reject":
                 answer = PromptsOrganizer.REJECT_MESSAGE
-            case _:  # router zwrócił None (błąd klasyfikacji)
+            case _: 
                 answer = PromptsOrganizer.ERROR_MESSAGE
 
         new_history = compacted + [

@@ -15,13 +15,23 @@ async def select_device(device_id: int, user_id: UUID, session: AsyncSession) ->
         raise HTTPException(404, "Device not found")
     return device
 
-async def read_sensor(sensors: list[Sensor], device_id: int, user_id: UUID, session: AsyncSession)->list[str]:
+
+async def get_primary_device(user_id: UUID, session: AsyncSession) -> Device:
+    device = await session.scalar(
+        select(Device).where(Device.owner_id == user_id).order_by(Device.id).limit(1)
+    )
+    if device is None:
+        raise HTTPException(404, "No device registered for this user")
+    return device
+
+async def read_sensor(device_id: int, user_id: UUID, session: AsyncSession, sensors: list[Sensor] | None = None) -> dict[str, float | None]:
     device = await select_device(device_id, user_id, session)
     async with httpx.AsyncClient() as client:
         response = await client.get(get_settings().ARDUINO_URL, params={"api-key":device.serial})
         response.raise_for_status()
     data = response.json()
-    return {s.value: data.get(s.value) for s in sensors} 
+    selected = sensors or list(Sensor)
+    return {s.value: data.get(s.value) for s in selected}
 
 
 async def water_plant(watering_time: int, device_id: int, user_id: UUID, session: AsyncSession)->bool:

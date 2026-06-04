@@ -5,9 +5,9 @@ from api.auth import current_active_user
 from api.db import get_async_session
 from api.models.metric import Metric
 from api.models.user import User
-from api.schemas.metric import MetricCreate, MetricRead
+from api.schemas.metric import HistorySummary, MetricCreate, MetricRead
 from api.service.devices import select_device
-from api.service.metric import get_latest, list_history
+from api.service.metric import Unit, aggregate_history, get_latest, list_history
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 
@@ -16,6 +16,18 @@ router = APIRouter(prefix="/metrics", tags=["metrics"])
 async def get_history( device_id: int,days: int = Query(7, ge=1, le=365), user: User = Depends(current_active_user), session: AsyncSession = Depends(get_async_session)):
     await select_device(device_id, user.id, session)
     return await list_history(device_id, days, session)
+
+
+@router.get("/{device_id}/summary", response_model=HistorySummary)
+async def get_history_summary(
+    device_id: int,
+    unit: Unit = Query("day"),
+    amount: int = Query(1, ge=1, le=1000),
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    await select_device(device_id, user.id, session)
+    return await aggregate_history(device_id, session, unit=unit, amount=amount)
 
 
 @router.get("/{device_id}/latest", response_model=MetricRead | None)

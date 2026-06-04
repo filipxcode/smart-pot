@@ -10,4 +10,5 @@ class ChatDeps:
     session: AsyncSession
     openai: AsyncOpenAI
     user_id: UUID
+    device_id: int
     embedding_model: str
