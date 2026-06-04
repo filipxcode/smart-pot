@@ -10,6 +10,13 @@ interface Message {
     timestamp: Date;
 }
 
+// Historia rozmowy dla backendu (stateless): klient ją trzyma i odsyła z każdym pytaniem.
+// Osobna od `messages`, które renderują dymki w UI.
+interface ChatTurn {
+    role: 'user' | 'assistant';
+    content: string;
+}
+
 export default function ChatScreen() {
     const [messages, setMessages] = useState<Message[]>([
         {
@@ -20,6 +27,7 @@ export default function ChatScreen() {
         },
     ]);
     const [inputText, setInputText] = useState('');
+    const [chatHistory, setChatHistory] = useState<ChatTurn[]>([]);
     const flatListRef = useRef<FlatList>(null);
 
     // Mutacja obsługująca wysyłanie zapytania do agenta AI na backendzie
@@ -27,10 +35,13 @@ export default function ChatScreen() {
         mutationFn: async (userQuery: string) => {
             const response = await apiClient.post('/query', {
                 query: userQuery,
+                history: chatHistory, // dotychczasowa historia rozmowy
             });
-            return response.data; // Zwraca: { answer: string, sources: [...] }
+            return response.data; // Zwraca: { answer: string, sources: [...], history: ChatTurn[] }
         },
         onSuccess: (data) => {
+            // Serwer zwraca pełną, zaktualizowaną historię (z tą turą) — nadpisujemy.
+            setChatHistory(data.history ?? []);
             const botMessage: Message = {
                 id: Math.random().toString(),
                 text: data.answer,

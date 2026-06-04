@@ -27,7 +27,7 @@ _route_agent = Agent(
 
 
 async def route_decision(query: str) -> RouterDecision | None:
-    """Zwraca decyzję routera albo None, gdy klasyfikacja się nie powiodła."""
+    """Classify route, reject not related queries."""
     try:
         result = await _route_agent.run(query, usage_limits=_ROUTER_LIMITS)
         return result.output
