@@ -7,7 +7,7 @@ from agent.router import route_decision
 
 
 async def run_router(query: str) -> str:
-    """Zwraca samą etykietę decyzji: "tool" | "rag" | "reject"."""
+    """Zwraca samą etykietę decyzji: "tool" | "reject"."""
     decision = await route_decision(query)
     return decision.decision
 
@@ -37,16 +37,16 @@ dataset = Dataset[str, str, None](
             inputs="sprawdź wilgotność gleby i powiedz, co o tym piszą moje dokumenty",
             expected_output="tool",
         ),
-        # rag: wiedza z dokumentów
+        # tool: wiedza z dokumentów (RAG jest teraz narzędziem agenta)
         Case(
             name="doc_knowledge",
             inputs="co w moich dokumentach pisze o podlewaniu storczyka?",
-            expected_output="rag",
+            expected_output="tool",
         ),
         Case(
             name="doc_howto",
             inputs="jak często według moich notatek powinienem nawozić monsterę?",
-            expected_output="rag",
+            expected_output="tool",
         ),
         # tool: ogólne pytanie botaniczne -> wyszukiwanie w sieci
         Case(
@@ -58,6 +58,18 @@ dataset = Dataset[str, str, None](
         Case(
             name="affirmation",
             inputs="tak, zrób to",
+            expected_output="tool",
+        ),
+        # tool: powitanie / small talk -> nie odrzucaj
+        Case(
+            name="greeting",
+            inputs="cześć, dzień dobry",
+            expected_output="tool",
+        ),
+        # tool: pytanie meta o możliwości asystenta -> nie odrzucaj
+        Case(
+            name="capabilities",
+            inputs="co potrafisz?",
             expected_output="tool",
         ),
         # reject: poza zakresem

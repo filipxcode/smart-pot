@@ -9,7 +9,9 @@ from pydantic_ai.messages import ModelResponse
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext
 
+import agent.tools.read_sensor as read_sensor_mod
 import agent.tools.search_document as search_document_mod
+import agent.tools.water_plant as water_plant_mod
 from agent.deps import ChatDeps
 from agent.retrieval.rag_search import ChunkHit
 from agent.tool_agent import _tool_agent
@@ -38,6 +40,7 @@ async def run_tool_agent(query: str) -> list[ToolCall]:
         session=None,
         openai=None,
         user_id=uuid4(),
+        device_id=1,
         embedding_model="text-embedding-3-small",
     )
     result = await _tool_agent.run(query, deps=deps)
@@ -94,25 +97,20 @@ dataset = Dataset[str, Expectation, None](
                 tools=[ExpectedTool(name="water_plant", args={"watering_time": 30})]
             ),
         ),
-        # 2. odczyt jednego, doprecyzowanego czujnika
+        # 2. odczyt parametrów (read_sensor zwraca zawsze komplet, bez argumentów)
         Case(
             name="read_root_temp",
             inputs="jaka jest temperatura korzeni?",
             expected_output=Expectation(
-                tools=[ExpectedTool(name="read_sensor", args={"sensors": ["root_temp"]})]
+                tools=[ExpectedTool(name="read_sensor")]
             ),
         ),
-        # 3. odczyt wielu czujników w jednym wywołaniu
+        # 3. pytanie o kilka parametrów — wciąż jedno wywołanie read_sensor()
         Case(
             name="read_multi_sensor",
             inputs="sprawdź wilgotność gleby i natężenie światła",
             expected_output=Expectation(
-                tools=[
-                    ExpectedTool(
-                        name="read_sensor",
-                        args={"sensors": ["soil_hum", "light_lux"]},
-                    )
-                ]
+                tools=[ExpectedTool(name="read_sensor")]
             ),
         ),
         # 4. harmonogram cykliczny w wybrane dni
@@ -159,7 +157,7 @@ dataset = Dataset[str, Expectation, None](
             inputs="sprawdź temperaturę powietrza, a potem podlej roślinę na 15 sekund",
             expected_output=Expectation(
                 tools=[
-                    ExpectedTool(name="read_sensor", args={"sensors": ["air_temp"]}),
+                    ExpectedTool(name="read_sensor"),
                     ExpectedTool(name="water_plant", args={"watering_time": 15}),
                 ]
             ),
@@ -170,7 +168,7 @@ dataset = Dataset[str, Expectation, None](
             inputs="sprawdź wilgotność powietrza i powiedz, co moje notatki mówią o idealnej wilgotności",
             expected_output=Expectation(
                 tools=[
-                    ExpectedTool(name="read_sensor", args={"sensors": ["air_hum"]}),
+                    ExpectedTool(name="read_sensor"),
                     ExpectedTool(name="search_document"),
                 ]
             ),
@@ -187,11 +185,30 @@ async def _fake_hybrid_search(*args, **kwargs) -> list[ChunkHit]:
             chunk_text="Podlewaj umiarkowanie, gdy wierzchnia warstwa podłoża przeschnie.",
             document_title="Notatki o roślinach",
             similarity=0.9,
+            cosine_similarity=0.85,
         )
     ]
 
 
+async def _fake_read_sensor_service(*args, **kwargs) -> dict[str, float | None]:
+    return {
+        "air_temp": 22.5,
+        "air_hum": 55.0,
+        "root_temp": 20.0,
+        "soil_hum": 40.0,
+        "light_lux": 800.0,
+    }
+
+
+async def _fake_water_plant_service(*args, **kwargs) -> bool:
+    return True
+
+
 if __name__ == "__main__":
-    with patch.object(search_document_mod, "hybrid_search", _fake_hybrid_search):
+    with (
+        patch.object(search_document_mod, "hybrid_search", _fake_hybrid_search),
+        patch.object(read_sensor_mod, "read_sensor_service", _fake_read_sensor_service),
+        patch.object(water_plant_mod, "water_plant_service", _fake_water_plant_service),
+    ):
         report = dataset.evaluate_sync(run_tool_agent)
     report.print(include_input=True, include_output=True)
