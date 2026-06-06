@@ -88,3 +88,5 @@ async def aggregate_history(
     return HistorySummary(
         unit=unit, amount=amount, granularity=granularity, start=start, buckets=buckets
     )
+    
+    
