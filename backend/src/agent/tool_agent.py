@@ -1,7 +1,7 @@
 import logging
 
 from pydantic_ai import Agent
-from pydantic_ai.messages import ModelMessage
+from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
 from pydantic_ai.usage import UsageLimits
 
 from agent.deps import ChatDeps
@@ -45,6 +45,14 @@ async def tool_answer(
         result = await _tool_agent.run(
             query, deps=deps, message_history=history or [], usage_limits=_TOOL_LIMITS
         )
+        tool_calls = [
+            f"{part.tool_name}({part.args})"
+            for msg in result.all_messages()
+            if isinstance(msg, ModelResponse)
+            for part in msg.parts
+            if isinstance(part, ToolCallPart)
+        ]
+        logger.info("tool_answer tools=%s", tool_calls or "BRAK")
         answer = result.output
         logger.info("tool_answer done: answer_chars=%d", len(answer))
         return answer

@@ -1,7 +1,14 @@
+import logging
+
+import httpx
+from pydantic_ai import RunContext
+
+from agent.deps import ChatDeps
 from api.models.metric import SENSOR_LABELS, Sensor
 from api.service.devices import read_sensor as read_sensor_service
-from agent.deps import ChatDeps
-from pydantic_ai import RunContext
+
+logger = logging.getLogger(__name__)
+
 
 def _format(readings: dict[str, float | None]) -> str:
     parts = []
@@ -12,9 +19,13 @@ def _format(readings: dict[str, float | None]) -> str:
 
 async def read_sensor(ctx: RunContext[ChatDeps]) -> str:
     """Reading health params"""
-    readings = await read_sensor_service(
-        device_id=ctx.deps.device_id,
-        user_id=ctx.deps.user_id,
-        session=ctx.deps.session,
-    )
+    try:
+        readings = await read_sensor_service(
+            device_id=ctx.deps.device_id,
+            user_id=ctx.deps.user_id,
+            session=ctx.deps.session,
+        )
+    except (httpx.HTTPError, RuntimeError) as exc:
+        logger.warning("read_sensor failed: %s", exc)
+        return "Nie udało się odczytać czujników — urządzenie jest teraz niedostępne."
     return _format(readings)

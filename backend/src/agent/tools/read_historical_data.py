@@ -32,9 +32,7 @@ async def read_historical_data(
     unit: Unit = "day",
     amount: Annotated[int, Field(ge=1, le=365)] = 7,
 ) -> str:
-    """Zwraca zagregowaną historię parametrów (avg/min/max per sensor) w kubełkach
-    czasowych. unit = jednostka zakresu (hour/day/month/year), amount = ile jednostek
-    wstecz (np. unit='hour', amount=24 → ostatnie 24h)."""
+    """Return agregated data with avg metric according to unit type"""
     summary = await aggregate_history(
         ctx.deps.device_id, ctx.deps.session, unit=unit, amount=amount
     )

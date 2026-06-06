@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 from uuid import uuid4
 
+from dateutil.relativedelta import relativedelta
 from pydantic import BaseModel
 from pydantic_ai.messages import ModelResponse
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext
 
+import agent.tools.read_historical_data as read_historical_data_mod
 import agent.tools.read_sensor as read_sensor_mod
 import agent.tools.search_document as search_document_mod
 import agent.tools.water_plant as water_plant_mod
 from agent.deps import ChatDeps
 from agent.retrieval.rag_search import ChunkHit
 from agent.tool_agent import _tool_agent
-
+from api.schemas.metric import MetricBucket, HistorySummary
 
 # --- typy wejścia/wyjścia -------------------------------------------------
 
@@ -173,6 +176,57 @@ dataset = Dataset[str, Expectation, None](
                 ]
             ),
         ),
+        # 9
+        Case(
+            name="decompose_metric_last_hour_last_year",
+            inputs="sprawdź jakie parametry życiowe miała roślina przez ostatnie 7 dni, a jakie przez ostatni rok",
+            expected_output=Expectation(
+                tools=[
+                    ExpectedTool(name="read_historical_data", args={"unit": "day", "amount":7}),
+                    ExpectedTool(name="read_historical_data",args={"unit": "month", "amount":12}),
+                ]
+            ),
+        ),
+        # 10. historia z ostatnich 24h → jednostka godzinowa
+        Case(
+            name="history_last_24h",
+            inputs="pokaż mi parametry rośliny z ostatnich 24 godzin",
+            expected_output=Expectation(
+                tools=[
+                    ExpectedTool(
+                        name="read_historical_data",
+                        args={"unit": "hour", "amount": 24},
+                    )
+                ]
+            ),
+        ),
+        # 11. historia z ostatniego miesiąca
+        Case(
+            name="history_last_month",
+            inputs="jaka była średnia wilgotność gleby w ostatnim miesiącu?",
+            expected_output=Expectation(
+                tools=[
+                    ExpectedTool(
+                        name="read_historical_data",
+                        args={"unit": "month", "amount": 1},
+                    )
+                ]
+            ),
+        ),
+        # 12. DEKOMPOZYCJA: porównanie stanu aktualnego z historią (read + history)
+        Case(
+            name="decompose_now_vs_history",
+            inputs="porównaj aktualną temperaturę powietrza z tą sprzed tygodnia",
+            expected_output=Expectation(
+                tools=[
+                    ExpectedTool(name="read_sensor"),
+                    ExpectedTool(
+                        name="read_historical_data",
+                        args={"unit": "day", "amount": 7},
+                    ),
+                ]
+            ),
+        ),
     ],
     evaluators=[ToolSelection()],
 )
@@ -203,12 +257,40 @@ async def _fake_read_sensor_service(*args, **kwargs) -> dict[str, float | None]:
 async def _fake_water_plant_service(*args, **kwargs) -> bool:
     return True
 
+async def _fake_aggregate_history(
+    device_id: int, session=None, *, unit: str = "day", amount: int = 1
+) -> HistorySummary:
+    start = datetime.now(UTC) - relativedelta(**{f"{unit}s": amount})
+    granularity = "month" if unit in ("month", "year") else "day"
+    buckets = [
+        MetricBucket(
+            bucket=start + timedelta(days=i),
+            count=10,
+            air_temp=22.0 + i,
+            air_hum=55.0,
+            root_temp=20.0,
+            soil_hum=60.0,
+            light_lux=500.0,
+        )
+        for i in range(3)
+    ]
+    return HistorySummary(
+        unit=unit,
+        amount=amount,
+        granularity=granularity,
+        start=start,
+        buckets=buckets,
+    )
+
 
 if __name__ == "__main__":
     with (
         patch.object(search_document_mod, "hybrid_search", _fake_hybrid_search),
         patch.object(read_sensor_mod, "read_sensor_service", _fake_read_sensor_service),
         patch.object(water_plant_mod, "water_plant_service", _fake_water_plant_service),
+        patch.object(
+            read_historical_data_mod, "aggregate_history", _fake_aggregate_history
+        ),
     ):
         report = dataset.evaluate_sync(run_tool_agent)
     report.print(include_input=True, include_output=True)
