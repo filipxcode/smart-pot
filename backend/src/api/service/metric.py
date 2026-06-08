@@ -2,11 +2,25 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from dateutil.relativedelta import relativedelta
+from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.models.device import Device
 from api.models.metric import Metric
-from api.schemas.metric import HistorySummary, MetricBucket
+from api.schemas.metric import HistorySummary, MetricBucket, MetricIngest
+
+
+async def ingest_reading(payload: MetricIngest, session: AsyncSession) -> Metric:
+    """Persist a sensor reading pushed by the device webhook."""
+    device = await session.get(Device, payload.device_id)
+    if device is None:
+        raise HTTPException(404, "Device not found")
+    metric = Metric(**payload.model_dump())
+    session.add(metric)
+    await session.commit()
+    await session.refresh(metric)
+    return metric
 
 
 async def list_history(device_id: int, days: int, session: AsyncSession) -> list[Metric]:

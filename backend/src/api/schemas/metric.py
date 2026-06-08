@@ -12,6 +12,17 @@ class MetricCreate(BaseModel):
     light_lux: float | None = None
 
 
+class MetricIngest(BaseModel):
+    """Payload pushed by the ESP webhook (device identified by device_id)."""
+
+    device_id: int
+    air_temp: float | None = None
+    air_hum: float | None = None
+    root_temp: float | None = None
+    soil_hum: int | None = None
+    light_lux: float | None = None
+
+
 class MetricRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -18,6 +18,7 @@ import agent.tools.water_plant as water_plant_mod
 from agent.deps import ChatDeps
 from agent.retrieval.rag_search import ChunkHit
 from agent.tool_agent import _tool_agent
+from api.models.metric import Metric
 from api.schemas.metric import MetricBucket, HistorySummary
 
 # --- typy wejścia/wyjścia -------------------------------------------------
@@ -244,14 +245,17 @@ async def _fake_hybrid_search(*args, **kwargs) -> list[ChunkHit]:
     ]
 
 
-async def _fake_read_sensor_service(*args, **kwargs) -> dict[str, float | None]:
-    return {
-        "air_temp": 22.5,
-        "air_hum": 55.0,
-        "root_temp": 20.0,
-        "soil_hum": 40.0,
-        "light_lux": 800.0,
-    }
+async def _fake_get_latest(device_id: int, session=None) -> Metric:
+    return Metric(
+        id=1,
+        device_id=device_id,
+        air_temp=22.5,
+        air_hum=55.0,
+        root_temp=20.0,
+        soil_hum=40,
+        light_lux=800.0,
+        created_at=datetime.now(UTC),
+    )
 
 
 async def _fake_water_plant_service(*args, **kwargs) -> bool:
@@ -286,7 +290,7 @@ async def _fake_aggregate_history(
 if __name__ == "__main__":
     with (
         patch.object(search_document_mod, "hybrid_search", _fake_hybrid_search),
-        patch.object(read_sensor_mod, "read_sensor_service", _fake_read_sensor_service),
+        patch.object(read_sensor_mod, "get_latest", _fake_get_latest),
         patch.object(water_plant_mod, "water_plant_service", _fake_water_plant_service),
         patch.object(
             read_historical_data_mod, "aggregate_history", _fake_aggregate_history

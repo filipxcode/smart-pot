@@ -3,7 +3,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from api.models.device import Device
-from api.models.metric import Sensor, SENSOR_LABELS
 import httpx
 from config.settings import get_settings
 
@@ -29,16 +28,6 @@ def _arduino_url() -> str:
     if not url:
         raise RuntimeError("ARDUINO_URL is not configured")
     return url
-
-
-async def read_sensor(device_id: int, user_id: UUID, session: AsyncSession, sensors: list[Sensor] | None = None) -> dict[str, float | None]:
-    device = await select_device(device_id, user_id, session)
-    async with httpx.AsyncClient() as client:
-        response = await client.get(_arduino_url(), params={"api-key":device.serial})
-        response.raise_for_status()
-    data = response.json()
-    selected = sensors or list(Sensor)
-    return {s.value: data.get(s.value) for s in selected}
 
 
 async def water_plant(watering_time: int, device_id: int, user_id: UUID, session: AsyncSession)->bool:

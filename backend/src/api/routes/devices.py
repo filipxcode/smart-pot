@@ -6,9 +6,8 @@ from sqlalchemy import select
 from api.auth import current_active_user
 from api.db import get_async_session
 from api.models.device import Device
-from api.models.metric import Sensor
 from api.models.user import User
-from api.service.devices import select_device, water_plant, read_sensor
+from api.service.devices import select_device, water_plant
 from api.schemas.device import DeviceCreate, DeviceRead, DeviceUpdate
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -63,15 +62,3 @@ async def create_water_event(
     except httpx.HTTPError as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Urządzenie nie odpowiada") from exc
     return {"status": "ok", "watering_time": watering_time}
-
-@router.get("/{device_id}/read-sensor")
-async def read_sensor_event(
-    device_id: int,
-    sensors: list[Sensor] | None = Query(None),
-    user: User = Depends(current_active_user),
-    session: AsyncSession = Depends(get_async_session),
-):
-    try:
-        return await read_sensor(device_id, user.id, session, sensors)
-    except httpx.HTTPError as exc:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Urządzenie nie odpowiada") from exc
