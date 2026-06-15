@@ -42,30 +42,6 @@ async def test_cannot_post_metric_for_foreign_device(client, device, other_auth_
     assert r.status_code != 201
 
 
-async def test_webhook_ingests_without_auth(client, device, auth_headers):
-    r = await client.post(
-        "/metrics/webhook",
-        json={"device_id": device["id"], "air_temp": 23.4, "soil_hum": 38},
-    )
-    assert r.status_code == 201, r.text
-    body = r.json()
-    assert body["device_id"] == device["id"]
-    assert body["air_temp"] == 23.4
-    assert body["soil_hum"] == 38
-
-    latest = await client.get(f"/metrics/{device['id']}/latest", headers=auth_headers)
-    assert latest.status_code == 200
-    assert latest.json()["air_temp"] == 23.4
-
-
-async def test_webhook_unknown_device(client):
-    r = await client.post(
-        "/metrics/webhook",
-        json={"device_id": 999999, "air_temp": 1.0},
-    )
-    assert r.status_code == 404
-
-
 async def test_latest_metric_empty(client, device, auth_headers):
     r = await client.get(f"/metrics/{device['id']}/latest", headers=auth_headers)
     assert r.status_code == 200

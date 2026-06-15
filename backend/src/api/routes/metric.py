@@ -5,23 +5,11 @@ from api.auth import current_active_user
 from api.db import get_async_session
 from api.models.metric import Metric
 from api.models.user import User
-from api.schemas.metric import HistorySummary, MetricCreate, MetricIngest, MetricRead
+from api.schemas.metric import HistorySummary, MetricCreate, MetricRead
 from api.service.devices import select_device
-from api.service.metric import (
-    Unit,
-    aggregate_history,
-    get_latest,
-    ingest_reading,
-    list_history,
-)
+from api.service.metric import Unit, aggregate_history, get_latest, list_history
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
-
-
-@router.post("/webhook", response_model=MetricRead, status_code=status.HTTP_201_CREATED)
-async def ingest_metric(payload: MetricIngest, session: AsyncSession = Depends(get_async_session)):
-    """Webhook for the ESP device to push sensor readings into the DB (no user auth)."""
-    return await ingest_reading(payload, session)
 
 
 @router.get("/{device_id}/history", response_model=list[MetricRead])

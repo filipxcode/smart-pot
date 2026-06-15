@@ -26,12 +26,7 @@ dataset = Dataset[str, str, None](
             inputs="jaka jest temperatura korzeni?",
             expected_output="tool",
         ),
-        Case(
-            name="schedule",
-            inputs="ustaw podlewanie w poniedziałki i czwartki o 8:00",
-            expected_output="tool",
-        ),
-        # akcja + dokumenty 
+        # akcja + dokumenty
         Case(
             name="action_plus_docs",
             inputs="sprawdź wilgotność gleby i powiedz, co o tym piszą moje dokumenty",

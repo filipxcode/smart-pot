@@ -117,37 +117,7 @@ dataset = Dataset[str, Expectation, None](
                 tools=[ExpectedTool(name="read_sensor")]
             ),
         ),
-        # 4. harmonogram cykliczny w wybrane dni
-        Case(
-            name="schedule_specific_days",
-            inputs="ustaw podlewanie w poniedziałki i czwartki o 8:00 na 20 sekund",
-            expected_output=Expectation(
-                tools=[
-                    ExpectedTool(
-                        name="schedule_watering_plant",
-                        args={
-                            "time_of_day": "08:00",
-                            "days": ["mon", "thu"],
-                            "duration_sec": 20,
-                        },
-                    )
-                ]
-            ),
-        ),
-        # 5. harmonogram codzienny (brak listy dni)
-        Case(
-            name="schedule_daily",
-            inputs="podlewaj roślinę codziennie rano o 7",
-            expected_output=Expectation(
-                tools=[
-                    ExpectedTool(
-                        name="schedule_watering_plant",
-                        args={"time_of_day": "07:00"},
-                    )
-                ]
-            ),
-        ),
-        # 6. pytanie o wiedzę z dokumentów → search_document
+        # 4. pytanie o wiedzę z dokumentów → search_document
         Case(
             name="doc_lookup",
             inputs="co w moich dokumentach pisze o podlewaniu storczyka?",

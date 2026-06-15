@@ -9,7 +9,6 @@ from agent.model import build_model
 from agent.prompts.prompts import PromptsOrganizer
 from agent.tools.read_historical_data import read_historical_data
 from agent.tools.read_sensor import read_sensor
-from agent.tools.schedule_watering import schedule_watering_plant
 from agent.tools.search_document import search_document
 from agent.tools.water_plant import water_plant
 from agent.tools.web_search import web_search
@@ -25,7 +24,6 @@ _tool_agent = Agent(
     tools=[
         read_sensor,
         read_historical_data,
-        schedule_watering_plant,
         search_document,
         water_plant,
         web_search,
