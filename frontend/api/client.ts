@@ -4,8 +4,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 // Telefon w sieci LAN -> IP kompu (localhost na telefonie = sam telefon).
 // Web na tym samym kompie -> http://localhost:8000.
-const API_URL = Platform.OS === 'web' ? 'http://localhost:8000' : 'http://192.168.1.100:8000';
-
+const API_URL = Platform.OS === 'web' ? 'http://localhost:8000' : 'http://192.168.1.10:8000';
 export const apiClient = axios.create({
     baseURL: API_URL,
     headers: {
