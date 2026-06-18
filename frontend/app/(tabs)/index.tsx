@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import { apiClient } from '@/api/client';
 import { useDeviceStore } from '@/store/useDeviceStore';
 import { Metric } from '@/types/api';
-import {randomInt} from "node:crypto";
 
 export default function HomeScreen() {
     const { selectedDeviceId } = useDeviceStore();
@@ -73,7 +72,6 @@ export default function HomeScreen() {
                 device_id: selectedDeviceId,
                 air_temp: getRandomFloat(15.0, 30.0),
                 air_hum: getRandomFloat(10.0, 70.0),
-                root_temp: getRandomFloat(10.0, 25.0),
                 soil_hum: getRandomInt(30, 80), // Oczekiwany int według backendu
                 light_lux: getRandomFloat(1000.0, 40000.0)
             });
@@ -125,19 +123,12 @@ export default function HomeScreen() {
                         </View>
                     </View>
 
-                    <View style={styles.row}>
-                        <View style={[styles.metricCard, styles.halfCard]}>
-                            <Text style={styles.metricLabel}>Temp. Korzeni</Text>
-                            <Text style={styles.metricValue}>
-                                {latestMetric.root_temp !== null ? `${latestMetric.root_temp.toFixed(1)}°C` : '--'}
-                            </Text>
-                        </View>
-                        <View style={[styles.metricCard, styles.halfCard]}>
-                            <Text style={styles.metricLabel}>Nasłonecznienie</Text>
-                            <Text style={styles.metricValue}>
-                                {latestMetric.light_lux !== null ? `${latestMetric.light_lux.toFixed(0)} lx` : '--'}
-                            </Text>
-                        </View>
+
+                    <View style={styles.metricCard}>
+                        <Text style={styles.metricLabel}>Nasłonecznienie</Text>
+                        <Text style={styles.metricValue}>
+                            {latestMetric.light_lux !== null ? `${latestMetric.light_lux.toFixed(0)} lx` : '--'}
+                        </Text>
                     </View>
 
                     <Text style={styles.timestamp}>

@@ -86,7 +86,7 @@ export default function StatisticsScreen() {
                         backgroundColor: '#ffffff',
                         backgroundGradientFrom: '#ffffff',
                         backgroundGradientTo: '#ffffff',
-                        decimalPlaces: 0,
+                        decimalPlaces: 1, // Wymuszenie 1 miejsca po przecinku
                         color: (opacity = 1) => `rgba(200, 200, 200, ${opacity})`,
                         labelColor: (opacity = 1) => `rgba(100, 100, 100, ${opacity})`,
                         style: { borderRadius: 16 },
@@ -96,6 +96,7 @@ export default function StatisticsScreen() {
                             stroke: `rgb(${rgbColor})`
                         }
                     }}
+                    formatYLabel={(value) => parseFloat(value).toFixed(1)}
                     bezier
                     style={styles.chart}
                 />
@@ -138,10 +139,9 @@ export default function StatisticsScreen() {
                 <Text style={styles.errorText}>Błąd pobierania historii pomiarów.</Text>
             ) : (
                 <>
-                    {renderChart("Wilgotność gleby", "soil_hum", "46, 204, 113", "%")}{/* Zielony */}
-                    {renderChart("Temp. korzeni", "root_temp", "155, 89, 182", "°C")}{/* Fioletowy */}
-                    {renderChart("Wilgotność powietrza", "air_hum", "52, 152, 219", "%")}{/* Niebieski */}
-                    {renderChart("Temp. powietrza", "air_temp", "231, 76, 60", "°C")}{/* Czerwony */}
+                    {renderChart("Wilgotność gleby", "soil_hum", "46, 204, 113", "%")}
+                    {renderChart("Wilgotność powietrza", "air_hum", "52, 152, 219", "%")}
+                    {renderChart("Temp. powietrza", "air_temp", "231, 76, 60", "°C")}
                 </>
             )}
         </ScrollView>

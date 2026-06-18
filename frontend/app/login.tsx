@@ -1,5 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import {
+    View,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    StyleSheet,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    TouchableWithoutFeedback,
+    Keyboard,
+    Platform
+} from 'react-native';
 import { useAuthStore } from '@/store/useAuthStore';
 import { apiClient } from '@/api/client';
 import { Link } from 'expo-router';
@@ -8,19 +19,23 @@ export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+
+    const [errorMsg, setErrorMsg] = useState('');
+    const [focusedInput, setFocusedInput] = useState('');
+
     const setToken = useAuthStore((state) => state.setToken);
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert('Błąd', 'Wpisz email i hasło');
+            setErrorMsg('Wpisz email i hasło');
             return;
         }
 
+        setErrorMsg('');
         setLoading(true);
         try {
-            // FastAPI wymaga formatu x-www-form-urlencoded do logowania OAuth2
             const params = new URLSearchParams();
-            params.append('username', email); // fastapi-users oczekuje klucza "username"
+            params.append('username', email);
             params.append('password', password);
 
             const response = await apiClient.post('/auth/jwt/login', params.toString(), {
@@ -29,57 +44,73 @@ export default function LoginScreen() {
                 },
             });
 
-            // Zapisywanie otrzymanego tokenu w stanie i SecureStore
             const token = response.data.access_token;
             await setToken(token);
 
-            // useEffect w _layout.tsx automatycznie wykryje zmianę tokena i przeniesie do /(tabs)
-
         } catch (error: any) {
             console.error('Błąd logowania:', error.response?.data || error.message);
-            Alert.alert('Błąd', 'Niepoprawne dane logowania lub błąd serwera');
+            setErrorMsg('Niepoprawne dane logowania lub błąd serwera');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Smart Doniczka</Text>
+        <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ flex: 1 }}
+        >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <View style={styles.container}>
+                    <Text style={styles.title}>Smart Doniczka</Text>
 
-            <TextInput
-                style={styles.input}
-                placeholder="Email"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-            />
+                    <TextInput
+                        style={[styles.input, focusedInput === 'email' && styles.inputFocused]}
+                        placeholder="Email"
+                        placeholderTextColor="#7f8c8d"
+                        value={email}
+                        onChangeText={setEmail}
+                        onFocus={() => setFocusedInput('email')}
+                        onBlur={() => setFocusedInput('')}
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        textContentType="emailAddress"
+                        autoComplete="email"
+                    />
 
-            <TextInput
-                style={styles.input}
-                placeholder="Hasło"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-            />
+                    <TextInput
+                        style={[styles.input, focusedInput === 'password' && styles.inputFocused]}
+                        placeholder="Hasło"
+                        placeholderTextColor="#7f8c8d"
+                        value={password}
+                        onChangeText={setPassword}
+                        onFocus={() => setFocusedInput('password')}
+                        onBlur={() => setFocusedInput('')}
+                        secureTextEntry
+                        textContentType="password"
+                        autoComplete="password"
+                    />
 
-            <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-                {loading ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <Text style={styles.buttonText}>Zaloguj się</Text>
-                )}
-            </TouchableOpacity>
+                    {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
-            <Link href="/register" asChild>
-                <TouchableOpacity style={{ marginTop: 20, alignItems: 'center' }}>
-                    <Text style={{ color: '#2c3e50', fontSize: 16 }}>
-                        Nie masz konta? <Text style={{ fontWeight: 'bold' }}>Zarejestruj się</Text>
-                    </Text>
-                </TouchableOpacity>
-            </Link>
-        </View>
+                    <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+                        {loading ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text style={styles.buttonText}>Zaloguj się</Text>
+                        )}
+                    </TouchableOpacity>
+
+                    <Link href="/register" asChild>
+                        <TouchableOpacity style={{ marginTop: 20, alignItems: 'center' }}>
+                            <Text style={{ color: '#2c3e50', fontSize: 16 }}>
+                                Nie masz konta? <Text style={{ fontWeight: 'bold' }}>Zarejestruj się</Text>
+                            </Text>
+                        </TouchableOpacity>
+                    </Link>
+                </View>
+            </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -106,6 +137,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: 15,
         marginBottom: 15,
         fontSize: 16,
+    },
+    inputFocused: {
+        borderColor: '#27ae60',
+        borderWidth: 2,
+    },
+    errorText: {
+        color: '#e74c3c',
+        marginBottom: 15,
+        textAlign: 'center',
+        fontWeight: '600',
     },
     button: {
         height: 50,
