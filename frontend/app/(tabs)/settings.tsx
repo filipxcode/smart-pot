@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import { apiClient } from '@/api/client';
@@ -14,6 +14,9 @@ export default function SettingsScreen() {
 
     const [newName, setNewName] = useState('');
     const [newSerial, setNewSerial] = useState('');
+
+    const [editingId, setEditingId] = useState<number | null>(null);
+    const [editName, setEditName] = useState('');
 
     const [docTitle, setDocTitle] = useState('');
     const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
@@ -43,13 +46,42 @@ export default function SettingsScreen() {
         }
     });
 
+    const updateDeviceMutation = useMutation({
+        mutationFn: async ({ id, name }: { id: number; name: string }) => {
+            const response = await apiClient.patch(`/devices/${id}`, { name });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['devices'] });
+            setEditingId(null);
+        },
+        onError: () => {
+            Alert.alert('Błąd', 'Nie udało się zaktualizować nazwy urządzenia.');
+        }
+    });
+
+    const deleteDeviceMutation = useMutation({
+        mutationFn: async (deviceId: number) => {
+            await apiClient.delete(`/devices/${deviceId}`);
+            return deviceId;
+        },
+        onSuccess: (deviceId: number) => {
+            queryClient.invalidateQueries({ queryKey: ['devices'] });
+            if (selectedDeviceId === deviceId) {
+                setSelectedDeviceId(null);
+            }
+        },
+        onError: () => {
+            Alert.alert('Błąd', 'Nie udało się usunąć urządzenia.');
+        }
+    });
+
     const uploadDocMutation = useMutation({
         mutationFn: async () => {
             if (!selectedFile || !docTitle) throw new Error("Brak tytułu lub pliku");
 
             const formData = new FormData();
             formData.append('title', docTitle);
-
             formData.append('file', {
                 uri: selectedFile.uri,
                 name: selectedFile.name,
@@ -57,9 +89,7 @@ export default function SettingsScreen() {
             } as any);
 
             const response = await apiClient.post('/file', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
+                headers: { 'Content-Type': 'multipart/form-data' },
             });
             return response.data;
         },
@@ -82,13 +112,31 @@ export default function SettingsScreen() {
         addDeviceMutation.mutate({ name: newName, serial: newSerial });
     };
 
+    const handleSaveEdit = (deviceId: number) => {
+        if (!editName.trim()) {
+            Alert.alert('Błąd', 'Nazwa nie może być pusta');
+            return;
+        }
+        updateDeviceMutation.mutate({ id: deviceId, name: editName.trim() });
+    };
+
+    const handleDeleteDevice = (deviceId: number) => {
+        Alert.alert(
+            'Usuń urządzenie',
+            'Czy na pewno chcesz usunąć to urządzenie? Tej operacji nie można cofnąć.',
+            [
+                { text: 'Anuluj', style: 'cancel' },
+                { text: 'Usuń', style: 'destructive', onPress: () => deleteDeviceMutation.mutate(deviceId) },
+            ]
+        );
+    };
+
     const handlePickDocument = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({
                 type: 'application/pdf',
                 copyToCacheDirectory: true,
             });
-
             if (!result.canceled && result.assets && result.assets.length > 0) {
                 const file = result.assets[0];
                 setSelectedFile(file);
@@ -113,15 +161,65 @@ export default function SettingsScreen() {
 
     const renderDeviceItem = ({ item }: { item: Device }) => {
         const isSelected = item.id === selectedDeviceId;
+        const isEditing = editingId === item.id;
+
+        if (isEditing) {
+            return (
+                <View style={[styles.deviceCard, isSelected && styles.deviceCardSelected]}>
+                    <TextInput
+                        style={styles.editInput}
+                        value={editName}
+                        onChangeText={setEditName}
+                        autoFocus
+                        placeholder="Nazwa urządzenia"
+                        placeholderTextColor="#7f8c8d"
+                    />
+                    <View style={styles.editActions}>
+                        <TouchableOpacity
+                            style={styles.saveBtn}
+                            onPress={() => handleSaveEdit(item.id)}
+                            disabled={updateDeviceMutation.isPending}
+                        >
+                            {updateDeviceMutation.isPending
+                                ? <ActivityIndicator color="#fff" size="small" />
+                                : <Text style={styles.saveBtnText}>Zapisz</Text>
+                            }
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.cancelBtn}
+                            onPress={() => setEditingId(null)}
+                        >
+                            <Text style={styles.cancelBtnText}>Anuluj</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            );
+        }
+
         return (
-            <TouchableOpacity
-                style={[styles.deviceCard, isSelected && styles.deviceCardSelected]}
-                onPress={() => setSelectedDeviceId(item.id)}
-            >
-                <Text style={[styles.deviceName, isSelected && styles.textSelected]}>{item.name}</Text>
-                <Text style={[styles.deviceSerial, isSelected && styles.textSelected]}>SN: {item.serial}</Text>
-                {isSelected && <Text style={styles.activeLabel}>Aktywna</Text>}
-            </TouchableOpacity>
+            <View style={[styles.deviceCard, isSelected && styles.deviceCardSelected]}>
+                <View style={styles.deviceCardRow}>
+                    <TouchableOpacity style={{ flex: 1 }} onPress={() => setSelectedDeviceId(item.id)}>
+                        <Text style={[styles.deviceName, isSelected && styles.textSelected]}>{item.name}</Text>
+                        <Text style={[styles.deviceSerial, isSelected && styles.textSelected]}>SN: {item.serial}</Text>
+                        {isSelected && <Text style={styles.activeLabel}>● Aktywna</Text>}
+                    </TouchableOpacity>
+                    <View style={styles.deviceActionBtns}>
+                        <TouchableOpacity
+                            style={styles.editBtn}
+                            onPress={() => { setEditingId(item.id); setEditName(item.name); }}
+                        >
+                            <Text style={styles.editBtnText}>Edytuj</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.deleteBtn}
+                            onPress={() => handleDeleteDevice(item.id)}
+                        >
+                            <Text style={styles.deleteBtnText}>Usuń</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
         );
     };
 
@@ -185,13 +283,11 @@ export default function SettingsScreen() {
                     value={docTitle}
                     onChangeText={setDocTitle}
                 />
-
                 <TouchableOpacity style={styles.secondaryButton} onPress={handlePickDocument}>
                     <Text style={styles.secondaryButtonText}>
                         {selectedFile ? `Wybrano: ${selectedFile.name}` : 'Wybierz plik z telefonu'}
                     </Text>
                 </TouchableOpacity>
-
                 <TouchableOpacity
                     style={[styles.primaryButton, { marginTop: 10, backgroundColor: '#8e44ad' }]}
                     onPress={handleUploadDocument}
@@ -219,10 +315,22 @@ const styles = StyleSheet.create({
     listContainer: { marginBottom: 20 },
     deviceCard: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 10, borderWidth: 1, borderColor: '#ddd' },
     deviceCardSelected: { borderColor: '#27ae60', backgroundColor: '#eafaf1' },
+    deviceCardRow: { flexDirection: 'row', alignItems: 'center' },
     deviceName: { fontSize: 18, fontWeight: 'bold', color: '#333' },
     deviceSerial: { fontSize: 14, color: '#7f8c8d', marginTop: 4 },
     textSelected: { color: '#27ae60' },
-    activeLabel: { position: 'absolute', right: 15, top: 15, color: '#27ae60', fontWeight: 'bold' },
+    activeLabel: { color: '#27ae60', fontWeight: 'bold', fontSize: 13, marginTop: 4 },
+    deviceActionBtns: { flexDirection: 'row', gap: 8, marginLeft: 10 },
+    editBtn: { backgroundColor: '#e8f4f8', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
+    editBtnText: { color: '#2980b9', fontWeight: 'bold', fontSize: 13 },
+    deleteBtn: { backgroundColor: '#fdf0ed', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
+    deleteBtnText: { color: '#e74c3c', fontWeight: 'bold', fontSize: 13 },
+    editInput: { height: 42, borderWidth: 1, borderColor: '#2980b9', borderRadius: 6, paddingHorizontal: 10, color: '#2c3e50', backgroundColor: '#fff', marginBottom: 8, fontSize: 16 },
+    editActions: { flexDirection: 'row', gap: 8 },
+    saveBtn: { flex: 1, backgroundColor: '#27ae60', padding: 9, borderRadius: 6, alignItems: 'center' },
+    saveBtnText: { color: '#fff', fontWeight: 'bold' },
+    cancelBtn: { flex: 1, backgroundColor: '#ecf0f1', padding: 9, borderRadius: 6, alignItems: 'center', borderWidth: 1, borderColor: '#bdc3c7' },
+    cancelBtnText: { color: '#7f8c8d', fontWeight: 'bold' },
     cardSection: { backgroundColor: '#fff', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginBottom: 20 },
     input: { height: 45, borderWidth: 1, borderColor: '#eee', borderRadius: 6, paddingHorizontal: 10, marginBottom: 10, color: '#2c3e50', backgroundColor: '#fafafa' },
     primaryButton: { backgroundColor: '#2980b9', padding: 12, borderRadius: 6, alignItems: 'center' },
@@ -232,5 +340,5 @@ const styles = StyleSheet.create({
     logoutButton: { padding: 15, alignItems: 'center', marginTop: 10 },
     logoutText: { color: '#e74c3c', fontSize: 16, fontWeight: 'bold' },
     emptyText: { textAlign: 'center', color: '#7f8c8d', fontStyle: 'italic', marginVertical: 20 },
-    errorText: { color: '#e74c3c', textAlign: 'center', marginBottom: 10 }
+    errorText: { color: '#e74c3c', textAlign: 'center', marginBottom: 10 },
 });

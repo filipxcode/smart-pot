@@ -25,6 +25,24 @@ export interface Metric {
 export interface DeviceEvent {
     id: string;
     device_id: number;
-    type: string; // Zależnie od tego, jak backend definiuje typ eventu
+    event_type: string;
     created_at: string;
+}
+
+export interface MetricBucket {
+    bucket: string; // ISO 8601 - start of bucket
+    count: number;
+    air_temp: number | null;
+    air_hum: number | null;
+    root_temp: number | null;
+    soil_hum: number | null;
+    light_lux: number | null;
+}
+
+export interface HistorySummary {
+    unit: string;
+    amount: number;
+    granularity: string; // "hour" | "day" | "week" | "month"
+    start: string; // ISO 8601
+    buckets: MetricBucket[];
 }
